@@ -2,6 +2,8 @@
 	"files.associations": {
 		"tty.h": "c",
 		"stdlib.h": "c",
-		"xtr1common": "cpp"
+		"xtr1common": "cpp",
+		"*.ht": "cpp",
+		"*.cppt": "cpp"
 	}
 }

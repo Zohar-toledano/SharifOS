@@ -5,11 +5,13 @@
 #include <utils/Singleton.h>
 #include <stdint.h>
 #include <string.h>
+
+#define VGA_WIDTH 80
+#define VGA_HEIGHT  25
+#define VGA_MEMORY (uint16_t *)0xB8000
+
 class Terminal
 {
-	const size_t VGA_WIDTH = 80;
-	const size_t VGA_HEIGHT = 25;
-	uint16_t *const VGA_MEMORY = (uint16_t *)0xB8000;
 
 	size_t row;
 	size_t column;

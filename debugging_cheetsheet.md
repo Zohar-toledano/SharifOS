@@ -22,5 +22,5 @@ gdb /build/kernel/Sharifos.kernel
 ```
 or in oneliner
 ```sh
-gdb ./build/kernel/sharifos.kernel -ex "target remote :1234" -ex "directory /mnt/d/coding/SharifOS/kernel/" -ex "c"
+gdb ./build/kernel/sharifos.kernel -ex "target remote :1234" -ex "directory /mnt/d/coding/SharifOS/kernel/" -ex "directory /mnt/d/coding/SharifOS/libc/" -ex "c"
 ```

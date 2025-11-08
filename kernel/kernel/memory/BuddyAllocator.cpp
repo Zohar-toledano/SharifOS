@@ -495,7 +495,8 @@ void BuddyAllocator::addNodeToListStart(page *newNode, uint8_t order)
 	// Set the previous node of the new node to nullptr, since it's the first node in the list.
 	newNode->lru.prev = nullptr;
 	// Set the previous node of the next node to the new node.
-	nextNode->lru.prev = newNode;
+	if (nextNode != nullptr)
+		nextNode->lru.prev = newNode;
 	// Set the next node in the list to the new node.
 	orders[order] = newNode;
 	// Set the "chained" bit of the new node to true, since it's in the list.

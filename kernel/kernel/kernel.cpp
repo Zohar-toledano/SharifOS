@@ -12,7 +12,7 @@ void Kernel::init(uintptr_t p_multiboot_info)
 	terminal.init();
 	memoryManager.init(p_multiboot_info);
 	interruptManager.init();
-	abort();
+	// abort(); 
 	printf("welcome to SharifOSs \n");
 	
 	// for (int i = 0; i < 100; i++)

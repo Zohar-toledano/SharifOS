@@ -1,8 +1,22 @@
 #pragma once
 #include <stdint.h>
 
+#define get_page_addr(dir_entry_idx, table_entry_idx) ((void *)((dir_entry_idx << 22) | (table_entry_idx << 12)))
+#define get_dir_idx(addr) ((size_t)addr >> 22)
+#define get_table_idx(addr) ((size_t)addr >> 12 & 0x03FF)
+
+
+#define PAGE_DIRECTORY_VIRTUAL_ADDR 0xfffff000
+#define PAGE_TABLE_VIRTUAL_ADDR(idx) ((PageDirectoryEntry *)(0xffc00000 + (idx << 12)))
+#define PAGE_TABLE_ENTRY_VIRTUAL_ADDR(dir_idx, table_idx) ((PageTableEntry *)(PAGE_TABLE_VIRTUAL_ADDR(dir_idx) + (table_idx << 2)))
+
+
+
 extern "C" void loadPageDirectory(unsigned int *);
 extern "C" void enablePaging();
+
+#define PAGE_DIRECTORY_ENTRIES 1024
+#define PAGE_TABLE_ENTRIES 1024
 
 typedef union __attribute__((packed))
 {
@@ -63,58 +77,18 @@ typedef union __attribute__((packed))
 	} bits;
 } PageDirectoryEntry;
 
-#define PAGE_DIRECTORY_VIRTUAL_ADDR ((PageDirectoryEntry *)(0xfffff000))
-#define PAGE_DIRECTORY_ENTRY_VIRTUAL_ADDR(pdi) ((PageDirectoryEntry *)(PAGE_DIRECTORY_VIRTUAL_ADDR + (pdi << 2)))
-#define PAGE_TABLE_VIRTUAL_ADDR(pdi) ((PageTableEntry *)(0xffc00000 + (pdi << 12)))
-#define PAGE_TABLE_ENTRY_VIRTUAL_ADDR(pdi, pti) ((PageTableEntry *)((size_t)PAGE_TABLE_VIRTUAL_ADDR(pdi) + (pti << 2)))
-
-#define PAGE_ADDR(pdi, pti) (((pdi) << 22) | ((pti) << 12))
-#define PAGE_DIR_INDEX(addr) (((addr) >> 22) & 0x3FF)
-#define PAGE_TABLE_INDEX(addr) (((addr) >> 12) & 0x3FF)
-
-#define PAGE_TABLE_ENTRIES 1024
-
 class PagingManager
 {
 	friend class MemoryManager;
-
 private:
 	PageDirectoryEntry *pageDirectory;
+	PageDirectoryEntry *pageDirectoryVirtual;
 
-private:
-	void *get_blank_page();
-
-	void map_kernel_memory();
-	int identity_map_memory(void *start, void *end);
-
-	int allocate_page(int dir_entry_idx, int table_entry_idx);
-	int free_page(int dir_entry_idx, int table_entry_idx);
-	int allocate_page_table(int dir_entry_idx);
-	int free_page_table(int dir_entry_idx);
-
-	void find_free_pages(size_t num_pages, int *dir_entry_idx, int *table_entry_idx);
-	bool map_page(void *virt_addr, void *phys_addr)
-	{
-	}
-	int map_page(int pdi, int pti, void *phys_addr);
 
 public:
 	void init();
 	void free(void *addr, size_t num_pages);
-	void free(int pdi, int pti, size_t num_pages);
 	void *allocate(size_t num_pages);
-	void *map(void *phys_addr)
-	{
-		int dir_entry_idx = -1, table_entry_idx = -1;
-		find_free_pages(1, &dir_entry_idx, &table_entry_idx);
-		if (dir_entry_idx == -1 || table_entry_idx == -1)
-			return nullptr;
-		if (map_page(dir_entry_idx, table_entry_idx, phys_addr) != 0)
-			return nullptr;
-
-		return (void *)PAGE_ADDR(dir_entry_idx, table_entry_idx);
-	}
-
 	inline void load()
 	{
 		loadPageDirectory((unsigned int *)pageDirectory);
@@ -126,16 +100,16 @@ private:
 		::enablePaging();
 	}
 
-public:
-	static inline void flush_tlb_single(uint32_t vaddr)
-	{
-		asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
-	}
 
-	inline void flush_tlb()
-	{
-		uint32_t cr3;
-		asm volatile("mov %%cr3, %0" : "=r"(cr3));
-		asm volatile("mov %0, %%cr3" ::"r"(cr3) : "memory");
-	}
+	bool map_page(uintptr_t virt_addr, uintptr_t phys_addr) ;
+
+
+	int create_new_page(PageTableEntry *table_entry, size_t table_entry_idx);
+	int free_page(PageTableEntry *table_entry, size_t table_entry_idx);
+	void* get_blank_page();
+
+	int create_page_table(size_t dir_entry_idx);
+	int free_page_table(size_t dir_entry_idx);
+	bool page_table_is_free(PageTableEntry *addr);
+	size_t find_free_pages(size_t num, size_t *dir_entry_idx, size_t *table_entry_idx);
 };
