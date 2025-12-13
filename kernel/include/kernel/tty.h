@@ -2,7 +2,6 @@
 #define _KERNEL_TTY_H
 
 #include <stddef.h>
-#include <utils/Singleton.h>
 #include <stdint.h>
 #include <string.h>
 

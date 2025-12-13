@@ -2,13 +2,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define IDT_PAGES 1
-#define IDT_ENTRIES 256
-
-typedef struct InterruptDescriptor
+typedef struct
 {
 	uint16_t offset_1;		 // offset bits 0..15
-	uint16_t selector;		 // a code segment selector in GDT or LDT
+	uint16_t selector;		 // a code segment selector in DefaultGlobalDescriptorTable or LDT
 	uint8_t zero;			 // unused, set to 0
 	uint8_t type_attributes; // gate type, dpl, and p fields
 	uint16_t offset_2;		 // offset bits 16..31
@@ -30,16 +27,17 @@ typedef struct
 	}                                                    \
 	void name()
 
-
-
 class InterruptManager
 {
-	idt_entry_t* idt;
-
 
 public:
 	void init();
+
+private:
 	void fill_idt();
 	void set_idt_entry(uint8_t idx, uint32_t offset, uint16_t selector, uint8_t gate_type, uint8_t dpl, bool present);
 	void load_idt();
+
+private:
+	idt_entry_t *_idt;
 };

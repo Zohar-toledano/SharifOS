@@ -1,11 +1,11 @@
-#include <kernel/memory/memorymanager.h>
+#include <kernel/memory/MemoryManager.h>
 #include <kernel/memory/BuddyAllocator.h>
 #include <string.h>
 #include <kernel/kernel.h>
 
 inline void *page::getBlockStart()
 {
-	return (void *)(((size_t)this - (size_t)krn.memoryManager.buddyAllocator.m_p_block_info_array_start) / sizeof(page) * BUDDY_ALLOCATOR_MIN_BLOCK_SIZE);
+	return (void *)(((size_t)this - (size_t)krn.memoryManager.buddyAllocator._m_p_block_info_array_start) / sizeof(page) * BUDDY_ALLOCATOR_MIN_BLOCK_SIZE);
 }
 inline bool page::isUsed()
 {
@@ -38,18 +38,18 @@ inline bool page::isChained() const { return flags & 0x02; }
 void BuddyAllocator::init()
 {
 	// Calculate the starting address for the block info array, ensuring 4K alignment
-	m_p_block_info_array_start = (void *)(ALIGN_UP_4K(
+	_m_p_block_info_array_start = (void *)(ALIGN_UP_4K(
 		((size_t)(krn.memoryManager.p_kernel_start) + krn.memoryManager.ul_kernel_size)));
 
 	// Calculate the size of the block info array, ensuring 4K alignment
-	m_ui_block_info_array_size = (ALIGN_UP_4K((krn.memoryManager.ul_physical_memory_size / BUDDY_ALLOCATOR_MIN_BLOCK_SIZE) * sizeof(page)));
+	_m_ui_block_info_array_size = (ALIGN_UP_4K((krn.memoryManager.ul_physical_memory_size / BUDDY_ALLOCATOR_MIN_BLOCK_SIZE) * sizeof(page)));
 
 	// Initialize the memory block info array to zero
-	memset((void *)m_p_block_info_array_start, 0, m_ui_block_info_array_size); // Should be at MemoryManager
+	memset((void *)_m_p_block_info_array_start, 0, _m_ui_block_info_array_size); // Should be at MemoryManager
 
 	// TODO: Handle any leftover memory that doesn't fit neatly into a block
 	// Find the closest lower order for the total physical memory size
-	uint8_t order = findClosestLowerOrder(krn.memoryManager.ul_physical_memory_size);
+	uint8_t order = find_closest_lower_order(krn.memoryManager.ul_physical_memory_size);
 	size_t start_addr = (size_t)krn.memoryManager.ul_memory_start;
 	page *base;
 	int offset = 0;
@@ -58,10 +58,10 @@ void BuddyAllocator::init()
 	for (order; order > 0; order--)
 	{
 		// Calculate the number of page headers needed to move to the next order
-		int step = numOfPageHeadersToNext(order);
+		int step = num_of_page_headers_to_next(order);
 		bool first = true;
 		// Determine the size of each block at the current order
-		int page_size = getBlockSizeByOrder(order);
+		int page_size = get_block_size_by_order(order);
 
 		// Continue adding pages until the start address exceeds the available memory
 		while (true)
@@ -72,7 +72,7 @@ void BuddyAllocator::init()
 			}
 
 			// Calculate the base page at the current offset
-			base = ((page *)m_p_block_info_array_start) + offset;
+			base = ((page *)_m_p_block_info_array_start) + offset;
 			page *prev = nullptr;
 
 			// If this is not the first page, link the previous page to the current
@@ -84,7 +84,7 @@ void BuddyAllocator::init()
 			else
 			{
 				// Otherwise, set this page as the start of the order list
-				orders[order] = base;
+				_orders[order] = base;
 				first = false;
 			}
 
@@ -103,10 +103,10 @@ void BuddyAllocator::init()
 	// // Reserve memory for the kernel within the block info array
 	{
 		void *start = (void *)(krn.memoryManager.p_kernel_start);
-		void *end = (void *)((size_t)m_p_block_info_array_start + m_ui_block_info_array_size);
+		void *end = (void *)((size_t)_m_p_block_info_array_start + _m_ui_block_info_array_size);
 		printf("start reserved: %x\nend reserved: %x\n", start, end);
 		printf("stack %x\n", &start);
-		reservedMemory(start, end);
+		reserved_memory(start, end);
 	}
 
 	// // Placeholder: Reserve memory for the stack
@@ -120,12 +120,12 @@ void BuddyAllocator::init()
 	// }
 	// void *SharifNullPageHaram = allocate(0,(void*)0x0);
 
-	// page *p = getPageHeaderByAddress((void *)(krn.memoryManager.p_kernel_start));
+	// page *p = get_page_header_by_address((void *)(krn.memoryManager.p_kernel_start));
 	// printf("page free status: %d, order: %d,next: %x,prev: %x\n", p->flags, p->order, p->lru.next, p->lru.prev);
-	// printf("start reserved: %x\nend reserved: %x\n", krn.memoryManager.p_kernel_start, m_p_block_info_array_start + m_ui_block_info_array_size);
+	// printf("start reserved: %x\nend reserved: %x\n", krn.memoryManager.p_kernel_start, m_p_block_info_array_start + _m_ui_block_info_array_size);
 	// for (size_t o = 0; o < BUDDY_ORDERS; o++)
 	// {
-	// 	printf("BuddyAllocator::init: orders[%d] = 0x%d\n", o, getFreeBlocksLen(o));
+	// 	printf("BuddyAllocator::init: _orders[%d] = 0x%d\n", o, get_free_blocks_len(o));
 	// }
 
 	// void *A = allocate(0x100);
@@ -170,10 +170,10 @@ bool BuddyAllocator::free(void *address)
 	}
 
 	// Retrieve the page header corresponding to the address
-	page *header = getPageHeaderByAddress(address);
+	page *header = get_page_header_by_address(address);
 
 	// Verify if the address is within the bounds of block_info_array
-	if ((size_t)header < (size_t)m_p_block_info_array_start || (size_t)header >= (size_t)m_p_block_info_array_start + m_ui_block_info_array_size)
+	if ((size_t)header < (size_t)_m_p_block_info_array_start || (size_t)header >= (size_t)_m_p_block_info_array_start + _m_ui_block_info_array_size)
 	{
 		// Return false if the address is out of bounds
 		return false;
@@ -189,7 +189,7 @@ bool BuddyAllocator::free(void *address)
 	// Retrieve the order of the block
 	uint8_t order = header->order;
 	// Mark the block as unused in the buddy system
-	markBlockUnused(header, order);
+	mark_block_unused(header, order);
 
 	// Return true indicating the block was successfully freed
 	return true;
@@ -211,23 +211,23 @@ bool BuddyAllocator::free(void *address)
 void *BuddyAllocator::allocate(size_t size)
 {
 	// Find the order of the block that is closest to the size requested
-	uint8_t order = findClosestUpperOrder(size);
+	uint8_t order = find_closest_upper_order(size);
 
 	// Initialize a counter to keep track of the number of blocks to split
 	size_t count = 0;
 
-	// Iterate over the orders from the closest order to the largest order
+	// Iterate over the _orders from the closest order to the largest order
 	for (order; order < BUDDY_ORDERS; order++)
 	{
 		// Get the header of the block for the current order
-		page *header = orders[order];
+		page *header = _orders[order];
 
 		// Check if the header is valid
 		if (header != nullptr)
 		{
-			splitBlock(header, order, count);
+			split_block(header, order, count);
 			// Mark the block as used in the buddy system
-			markBlockUsed(header, order);
+			mark_block_used(header, order);
 
 			// Return the address of the block
 			return header->getBlockStart();
@@ -259,18 +259,18 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 	// If the preferred address is nullptr, just allocate a block of the desired order
 	if (preferredAddr == nullptr)
 	{
-		return allocate(getBlockSizeByOrder(desiredOrder));
+		return allocate(get_block_size_by_order(desiredOrder));
 	}
 
 	// Check if the preferred address is aligned to the block size of the desired order
-	if (!IS_ALIGNED(preferredAddr, getBlockSizeByOrder(desiredOrder)))
+	if (!IS_ALIGNED(preferredAddr, get_block_size_by_order(desiredOrder)))
 	{
 		// If not, return nullptr to indicate failure
 		return nullptr;
 	}
 
 	// Get the page header of the preferred address
-	page *preferredPage = getPageHeaderByAddress(preferredAddr);
+	page *preferredPage = get_page_header_by_address(preferredAddr);
 
 	// Get the page header of the first free block in the list
 	page *freeListPage = preferredPage;
@@ -299,8 +299,8 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 	// Find the order of the first free block
 	for (int i = 0; i < BUDDY_ORDERS; i++)
 	{
-		// printf("orders[%d]: 0x%x\n", i, orders[i]);
-		if (orderPage == orders[i])
+		// printf("_orders[%d]: 0x%x\n", i, _orders[i]);
+		if (orderPage == _orders[i])
 		{
 			order = i;
 			break;
@@ -312,7 +312,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 		return nullptr;
 	}
 	// Split the block until the desired order is reached
-	removeNodeFromList(freeListPage, order);
+	remove_node_from_list(freeListPage, order);
 	while (desiredOrder < order && order < BUDDY_ORDERS)
 	{
 		// if (order == 0) break;
@@ -322,7 +322,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 		order--;
 
 		// Calculate the hop to the next block in the list
-		size_t hop = numOfPageHeadersToNext(order);
+		size_t hop = num_of_page_headers_to_next(order);
 
 		// Split the block into two buddies
 		page *buddyA = freeListPage;
@@ -332,7 +332,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 		if (preferredPage < buddyB && preferredPage >= buddyA)
 		{
 			// Add the second buddy to the free list
-			addNodeToListStart(buddyB, order);
+			add_node_to_list_start(buddyB, order);
 
 			// Move the first buddy to the next block in the list
 			freeListPage = buddyA;
@@ -341,7 +341,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 		else if (preferredPage >= buddyB && preferredPage < buddyB + hop)
 		{
 			// Add the first buddy to the free list
-			addNodeToListStart(buddyA, order);
+			add_node_to_list_start(buddyA, order);
 
 			// Move the second buddy to the next block in the list
 			freeListPage = buddyB;
@@ -354,7 +354,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
 	}
 
 	// Mark the block as used in the buddy system
-	markBlockUsed(freeListPage, order);
+	mark_block_used(freeListPage, order);
 	// Return the address of the block
 	return freeListPage->getBlockStart();
 }
@@ -383,7 +383,7 @@ void *BuddyAllocator::allocate(uint8_t desiredOrder, void *preferredAddr)
  * @param order The order of the block.
  * @param splits The desired number of splits.
  */
-void BuddyAllocator::markBlockUsed(page *pageHeader, uint8_t order)
+void BuddyAllocator::mark_block_used(page *pageHeader, uint8_t order)
 {
 
 	// Finally, mark the block as used by setting the 'used' bit to true.
@@ -415,12 +415,12 @@ void BuddyAllocator::markBlockUsed(page *pageHeader, uint8_t order)
  * @param pageHeader A pointer to the page header of the block to mark as unused.
  * @param order The order of the block to mark as unused.
  */
-void BuddyAllocator::markBlockUnused(page *pageHeader, uint8_t order)
+void BuddyAllocator::mark_block_unused(page *pageHeader, uint8_t order)
 {
 	// We need to keep track of the order of the block as we iterate through the loop.
 	uint8_t buddyOrder = order;
 
-	// We'll loop until we reach the maximum order (which is one less than the number of orders).
+	// We'll loop until we reach the maximum order (which is one less than the number of _orders).
 	while (buddyOrder < BUDDY_ORDERS)
 	{
 		// We need to check if the block is aligned to the next order.
@@ -430,17 +430,17 @@ void BuddyAllocator::markBlockUnused(page *pageHeader, uint8_t order)
 		page *buddy;
 
 		// Check if the block is aligned to the next order.
-		if (IS_ALIGNED(pageHeader->getBlockStart(), getBlockSizeByOrder(buddyOrder + 1)))
+		if (IS_ALIGNED(pageHeader->getBlockStart(), get_block_size_by_order(buddyOrder + 1)))
 		{
 			// If it is, the buddy is the next block in the list.
-			buddy = pageHeader + numOfPageHeadersToNext(buddyOrder);
+			buddy = pageHeader + num_of_page_headers_to_next(buddyOrder);
 			// The aligned buddy is the current block.
 			alignedBuddy = pageHeader;
 		}
 		else
 		{
 			// If it's not, the buddy is the previous block in the list.
-			buddy = pageHeader - numOfPageHeadersToNext(buddyOrder);
+			buddy = pageHeader - num_of_page_headers_to_next(buddyOrder);
 			// The aligned buddy is the buddy block.
 			alignedBuddy = buddy;
 		}
@@ -449,7 +449,7 @@ void BuddyAllocator::markBlockUnused(page *pageHeader, uint8_t order)
 		if (!buddy->isUsed())
 		{
 			// If it's not, remove it from the free list.
-			removeNodeFromList(buddy, buddyOrder);
+			remove_node_from_list(buddy, buddyOrder);
 			// Move the page header to the aligned buddy.
 			pageHeader = alignedBuddy;
 		}
@@ -464,7 +464,7 @@ void BuddyAllocator::markBlockUnused(page *pageHeader, uint8_t order)
 	}
 
 	// Add the block to the free list.
-	addNodeToListStart(pageHeader, order);
+	add_node_to_list_start(pageHeader, order);
 
 	// Set the order of the block to 0.
 	pageHeader->order = 0;
@@ -486,10 +486,10 @@ void BuddyAllocator::markBlockUnused(page *pageHeader, uint8_t order)
  * @param newNode The page header of the block to add to the free list.
  * @param order The order of the block to add to the free list.
  */
-void BuddyAllocator::addNodeToListStart(page *newNode, uint8_t order)
+void BuddyAllocator::add_node_to_list_start(page *newNode, uint8_t order)
 {
 	// Get the next node in the list.
-	page *nextNode = orders[order];
+	page *nextNode = _orders[order];
 	// Set the next node of the new node to the next node.
 	newNode->lru.next = nextNode;
 	// Set the previous node of the new node to nullptr, since it's the first node in the list.
@@ -498,16 +498,16 @@ void BuddyAllocator::addNodeToListStart(page *newNode, uint8_t order)
 	if (nextNode != nullptr)
 		nextNode->lru.prev = newNode;
 	// Set the next node in the list to the new node.
-	orders[order] = newNode;
+	_orders[order] = newNode;
 	// Set the "chained" bit of the new node to true, since it's in the list.
 	newNode->setChained();
 }
 
-void BuddyAllocator::splitBlock(page *pageHeader, uint8_t order, size_t splits)
+void BuddyAllocator::split_block(page *pageHeader, uint8_t order, size_t splits)
 {
 	// Remove the block from the free list. This is necessary because we're about to split the block into two buddies,
 	// and we don't want the second buddy to be on the free list.
-	removeNodeFromList(pageHeader, order);
+	remove_node_from_list(pageHeader, order);
 
 	// We're going to be splitting the block into two buddies, and we want to keep track of which buddy is which.
 	// We'll use a pointer called 'current' to keep track of which buddy we're currently working with.
@@ -520,8 +520,8 @@ void BuddyAllocator::splitBlock(page *pageHeader, uint8_t order, size_t splits)
 	{
 		--order;
 		page *buddyA = current;									// The first buddy is the one we're currently working with.
-		page *buddyB = current + numOfPageHeadersToNext(order); // The second buddy is the one that we'll add to the free list.
-		addNodeToListStart(buddyB, order);						// Add the second buddy to the free list.
+		page *buddyB = current + num_of_page_headers_to_next(order); // The second buddy is the one that we'll add to the free list.
+		add_node_to_list_start(buddyB, order);						// Add the second buddy to the free list.
 		current = buddyA;										// Update the 'current' pointer to point to the first buddy.
 	}
 }
@@ -547,7 +547,7 @@ void BuddyAllocator::splitBlock(page *pageHeader, uint8_t order, size_t splits)
  * @param node A pointer to the page header of the block.
  * @param order The order of the block.
  */
-void BuddyAllocator::removeNodeFromList(page *node, uint8_t order)
+void BuddyAllocator::remove_node_from_list(page *node, uint8_t order)
 {
 	// Retrieve the next node in the list from the current node's lru.next pointer
 	page *nextNode = static_cast<page *>(node->lru.next);
@@ -557,13 +557,13 @@ void BuddyAllocator::removeNodeFromList(page *node, uint8_t order)
 	// Check if both nextNode and prevNode are null, indicating the node is the only node in the list
 	if (nextNode == nullptr && prevNode == nullptr)
 		// Set the head of the list for the given order to null as the list is now empty
-		orders[order] = nullptr;
+		_orders[order] = nullptr;
 	else
 	{
 		// If prevNode is null, it means the node is the head of the list
 		if (prevNode == nullptr)
 			// Update the head of the list to point to the nextNode
-			orders[order] = nextNode;
+			_orders[order] = nextNode;
 		else
 			// Otherwise, update the previous node's next pointer to bypass the current node
 			prevNode->lru.next = nextNode;
@@ -589,13 +589,13 @@ void BuddyAllocator::removeNodeFromList(page *node, uint8_t order)
  * @param order The order of the blocks to count.
  * @return The total number of free blocks of the given order.
  */
-size_t BuddyAllocator::getFreeBlocksLen(uint8_t order)
+size_t BuddyAllocator::get_free_blocks_len(uint8_t order)
 {
 	// Initialize the count of free blocks to zero
 	int count = 0;
 
 	// Start with the head of the linked list for the given order
-	page *curr = orders[order];
+	page *curr = _orders[order];
 
 	// Traverse the linked list to count the number of free blocks
 	while (curr != nullptr)
@@ -620,7 +620,7 @@ size_t BuddyAllocator::getFreeBlocksLen(uint8_t order)
  * @param order The order of the blocks to retrieve the size for.
  * @return The size of the block in the buddy system for the given order.
  */
-size_t BuddyAllocator::getBlockSizeByOrder(uint8_t order)
+size_t BuddyAllocator::get_block_size_by_order(uint8_t order)
 {
 	// Calculate the block size by left-shifting the base block size by the given order
 	return BUDDY_ALLOCATOR_MIN_BLOCK_SIZE << order;
@@ -639,7 +639,7 @@ void *test(uint8_t t, void *end)
  * @param start The start address of the range of memory to reserve.
  * @param end The end address of the range of memory to reserve.
  */
-void BuddyAllocator::reservedMemory(void *start, void *end)
+void BuddyAllocator::reserved_memory(void *start, void *end)
 {
 	void *current = start;
 
@@ -666,7 +666,7 @@ void BuddyAllocator::reservedMemory(void *start, void *end)
  * @param order The order of the block to calculate the number of page headers for.
  * @return The number of page headers to the next block of memory.
  */
-inline int BuddyAllocator::numOfPageHeadersToNext(size_t order)
+inline int BuddyAllocator::num_of_page_headers_to_next(size_t order)
 {
 	// Calculate the number of page headers to the next block of memory
 	// by left-shifting 1 by the given order
@@ -679,11 +679,11 @@ inline int BuddyAllocator::numOfPageHeadersToNext(size_t order)
  * @param address The address to calculate the page header for.
  * @return The page header for the given address.
  */
-inline page *BuddyAllocator::getPageHeaderByAddress(void *address)
+inline page *BuddyAllocator::get_page_header_by_address(void *address)
 {
 	// Calculate the page header by dividing the address by the minimum block size
 	// and adding the result to the starting address of the block info array
-	return (page *)m_p_block_info_array_start + ((size_t)address / BUDDY_ALLOCATOR_MIN_BLOCK_SIZE);
+	return (page *)_m_p_block_info_array_start + ((size_t)address / BUDDY_ALLOCATOR_MIN_BLOCK_SIZE);
 }
 
 /**
@@ -696,13 +696,13 @@ inline page *BuddyAllocator::getPageHeaderByAddress(void *address)
  * @param size The size in bytes to find the closest lower order for.
  * @return The closest lower order that is less than or equal to the given size.
  */
-int BuddyAllocator::findClosestLowerOrder(size_t size)
+int BuddyAllocator::find_closest_lower_order(size_t size)
 {
 	// Right-shift the size by 12 to get the order in terms of 4KB blocks
 	size = size >> 12;
 	int order = -1;
 
-	// Iterate over the orders until the size is less than or equal to 0
+	// Iterate over the _orders until the size is less than or equal to 0
 	while (order < BUDDY_ORDERS - 1 && size > 0)
 	{
 		// Right-shift the size to move to the next order
@@ -719,15 +719,15 @@ int BuddyAllocator::findClosestLowerOrder(size_t size)
  *
  * This function takes a size in bytes and returns the closest upper order that
  * is greater than or equal to the given size. The order is calculated by iterating
- * over the orders until the size is less than the block size for the current order.
+ * over the _orders until the size is less than the block size for the current order.
  *
  * @param size The size in bytes to find the closest upper order for.
  * @return The closest upper order that is greater than or equal to the given size.
  */
-size_t BuddyAllocator::findClosestUpperOrder(size_t size)
+size_t BuddyAllocator::find_closest_upper_order(size_t size)
 {
 	uint8_t order = 0;
-	while (order < BUDDY_ORDERS - 1 && getBlockSizeByOrder(order) < size)
+	while (order < BUDDY_ORDERS - 1 && get_block_size_by_order(order) < size)
 	{
 		// Increment the order to move to the next larger block size
 		order++;

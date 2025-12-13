@@ -1,10 +1,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <stdio.h>
-
-#define GDT_ENTRY_SIZE 6
-extern "C" void setGdt(void *gdtr_ptr);
 
 struct GDTEntry
 {
@@ -22,26 +18,18 @@ struct GDTDescriptor
 	uint32_t base;
 } __attribute__((packed));
 
-void set_gdt_entry(GDTEntry *entry, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
+constexpr uint32_t DEFAULT_GDT_SIZE = 5;
 
-class GDT
+class DefaultGlobalDescriptorTable
 {
 public:
-	GDTEntry gdt[5];
-	GDTDescriptor gdtdesc;
-	void init()
-	{
-		set_gdt_entry(&gdt[0], 0, 0, 0, 0);
-		set_gdt_entry(&gdt[1], 0, 0x000FFFFF, 0x9A, 0xCF); // Code segment
-		set_gdt_entry(&gdt[2], 0, 0x000FFFFF, 0x92, 0xCF); // Data segment
-		set_gdt_entry(&gdt[3], 0, 0x000FFFFF, 0xfa, 0xCF);
-		set_gdt_entry(&gdt[4], 0, 0x000FFFFF, 0xf2, 0xCF);
-		gdtdesc = {sizeof(gdt) - 1, (uint32_t)gdt};
-		lgdt();
-		printf("gdt %x\n", gdtdesc.base);
-	}
-	inline void lgdt()
-	{
-		setGdt(&gdtdesc);
-	}
+	void init();
+
+private:
+	void set_gdt_entry(uint32_t index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
+	void load();
+
+private:
+	GDTEntry _gdt[DEFAULT_GDT_SIZE];
+	GDTDescriptor _gdt_descriptor;
 };

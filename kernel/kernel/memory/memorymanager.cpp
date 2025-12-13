@@ -1,4 +1,4 @@
-#include <kernel/memory/memorymanager.h>
+#include <kernel/memory/MemoryManager.h>
 #include <kernel/tty.h>
 #define ALIGN_UP(addr) (((addr) + 7) & ~7)
 
@@ -110,9 +110,9 @@ void MemoryManager::init(uintptr_t p_multiboot_info)
 	buddyAllocator.init();
 	pagingManager.init();
 	pagingManager.load();
-	pagingManager.enablePaging();
+	pagingManager.enable_paging();
 
-	void* vga_addr = buddyAllocator.allocate(1,VGA_MEMORY);
-	pagingManager.identity_map_memory(vga_addr, (void*)((size_t)vga_addr + 25*80*2*2));
+	void *vga_addr = buddyAllocator.allocate(1, VGA_MEMORY);
+	pagingManager.identity_map_memory(vga_addr, (void *)((size_t)vga_addr + 25 * 80 * 2 * 2));
 	pagingManager.flush_tlb();
 }
