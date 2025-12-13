@@ -1,22 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-#define get_page_addr(dir_entry_idx, table_entry_idx) ((void *)((dir_entry_idx << 22) | (table_entry_idx << 12)))
-#define get_dir_idx(addr) ((size_t)addr >> 22)
-#define get_table_idx(addr) ((size_t)addr >> 12 & 0x03FF)
-
-
-#define PAGE_DIRECTORY_VIRTUAL_ADDR 0xfffff000
-#define PAGE_TABLE_VIRTUAL_ADDR(idx) ((PageDirectoryEntry *)(0xffc00000 + (idx << 12)))
-#define PAGE_TABLE_ENTRY_VIRTUAL_ADDR(dir_idx, table_idx) ((PageTableEntry *)(PAGE_TABLE_VIRTUAL_ADDR(dir_idx) + (table_idx << 2)))
-
-
-
-extern "C" void loadPageDirectory(unsigned int *);
-extern "C" void enablePaging();
-
-#define PAGE_DIRECTORY_ENTRIES 1024
-#define PAGE_TABLE_ENTRIES 1024
 
 typedef union __attribute__((packed))
 {
@@ -76,40 +60,3 @@ typedef union __attribute__((packed))
 		} page_kind;
 	} bits;
 } PageDirectoryEntry;
-
-class PagingManager
-{
-	friend class MemoryManager;
-private:
-	PageDirectoryEntry *pageDirectory;
-	PageDirectoryEntry *pageDirectoryVirtual;
-
-
-public:
-	void init();
-	void free(void *addr, size_t num_pages);
-	void *allocate(size_t num_pages);
-	inline void load()
-	{
-		loadPageDirectory((unsigned int *)pageDirectory);
-	}
-
-private:
-	static inline void enablePaging()
-	{
-		::enablePaging();
-	}
-
-
-	bool map_page(uintptr_t virt_addr, uintptr_t phys_addr) ;
-
-
-	int create_new_page(PageTableEntry *table_entry, size_t table_entry_idx);
-	int free_page(PageTableEntry *table_entry, size_t table_entry_idx);
-	void* get_blank_page();
-
-	int create_page_table(size_t dir_entry_idx);
-	int free_page_table(size_t dir_entry_idx);
-	bool page_table_is_free(PageTableEntry *addr);
-	size_t find_free_pages(size_t num, size_t *dir_entry_idx, size_t *table_entry_idx);
-};

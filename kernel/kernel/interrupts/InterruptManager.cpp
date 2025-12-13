@@ -11,7 +11,6 @@ DEFINE_ISR(default_interrupt_handler)
 DEFINE_ISR(default_exception_handler)
 {
 	printf("Unhandled Exception!\n");
-	abort();
 }
 
 void InterruptManager::init()
@@ -22,8 +21,8 @@ void InterruptManager::init()
 		printf("Failed to allocate memory for IDT.\n");
 		abort();
 	}
-	// fill_idt();
-	// load_idt();
+	fill_idt();
+	load_idt();
 }
 void InterruptManager::fill_idt()
 {

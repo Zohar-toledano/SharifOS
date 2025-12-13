@@ -98,6 +98,8 @@ install: install-headers install-kernel
 install-headers:
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.
+	mkdir -p $(DESTDIR)$(INCLUDEDIR)/arch
+	cp -R --preserve=timestamps arch/$(HOSTARCH)/*.h $(DESTDIR)$(INCLUDEDIR)/arch/.
 
 install-kernel: $(KBUILDDIR)/sharifos.kernel
 	mkdir -p $(DESTDIR)$(BOOTDIR)

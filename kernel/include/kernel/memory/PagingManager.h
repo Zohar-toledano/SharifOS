@@ -1,78 +1,9 @@
 #pragma once
 #include <stdint.h>
+#include <arch/Paging.h>
 
 extern "C" void loadPageDirectory(unsigned int *);
 extern "C" void enablePaging();
-
-typedef union __attribute__((packed))
-{
-	uint32_t value; /* full 32-bit word */
-
-	struct __attribute__((packed))
-	{
-		uint32_t present : 1;		// bit 0
-		uint32_t writable : 1;		// bit 1
-		uint32_t user : 1;			// bit 2
-		uint32_t write_through : 1; // bit 3
-		uint32_t cache_disable : 1; // bit 4
-		uint32_t accessed : 1;		// bit 5
-		uint32_t dirty : 1;			// bit 6
-		uint32_t pat : 1;			// bit 7
-		uint32_t global : 1;		// bit 8
-		uint32_t avail : 3;			// bits 9-11
-		uint32_t phys_addr : 20;	// bits 12-31 (4-KiB frame)
-	} bits;
-} PageTableEntry;
-
-/* 4-MiB (large) page entry — valid when PS=1 in PDE             *
- * Layout from Intel SDM Vol.3, Table 4-13 (32-bit paging).       */
-typedef union __attribute__((packed))
-{
-	uint32_t value;
-
-	struct __attribute__((packed))
-	{
-		uint32_t present : 1;		// bit 0  (P)
-		uint32_t writable : 1;		// bit 1  (R/W)
-		uint32_t user : 1;			// bit 2  (U/S)
-		uint32_t write_through : 1; // bit 3  (PWT)
-		uint32_t cache_disable : 1; // bit 4  (PCD)
-		uint32_t accessed : 1;		// bit 5  (A)
-		uint32_t dirty : 1;			// bit 6  (D) – set by CPU on write
-		uint32_t page_size : 1;		// bit 7  (PS=1 for big page)
-		union
-		{
-			struct
-			{
-				uint32_t global : 1;	 // bit 8  (G)
-				uint32_t avail : 3;		 // bits 9-11 (OS-defined)
-				uint32_t pat : 1;		 // bit 12 (PAT index bit 2)
-				uint32_t reserved : 9;	 // bits 13-21 (must be 0)
-				uint32_t phys_addr : 10; // bits 22-31 -> bits 32-41 of frame
-			} goliath;
-			struct
-			{
-				uint32_t avail : 4;		 // bits 9-11 (OS-defined)
-				uint32_t phys_addr : 20; // bits 22-31 -> bits 32-41 of frame
-				PageTableEntry *get_addr()
-				{
-					return (PageTableEntry *)(phys_addr << 12);
-				}
-			} david;
-		} page_kind;
-	} bits;
-} PageDirectoryEntry;
-
-#define PAGE_DIRECTORY_VIRTUAL_ADDR ((PageDirectoryEntry *)(0xfffff000))
-#define PAGE_DIRECTORY_ENTRY_VIRTUAL_ADDR(pdi) ((PageDirectoryEntry *)(PAGE_DIRECTORY_VIRTUAL_ADDR + (pdi << 2)))
-#define PAGE_TABLE_VIRTUAL_ADDR(pdi) ((PageTableEntry *)(0xffc00000 + (pdi << 12)))
-#define PAGE_TABLE_ENTRY_VIRTUAL_ADDR(pdi, pti) ((PageTableEntry *)((size_t)PAGE_TABLE_VIRTUAL_ADDR(pdi) + (pti << 2)))
-
-#define PAGE_ADDR(pdi, pti) (((pdi) << 22) | ((pti) << 12))
-#define PAGE_DIR_INDEX(addr) (((addr) >> 22) & 0x3FF)
-#define PAGE_TABLE_INDEX(addr) (((addr) >> 12) & 0x3FF)
-
-#define PAGE_TABLE_ENTRIES 1024
 
 class PagingManager
 {
@@ -83,19 +14,13 @@ private:
 
 private:
 	void *get_blank_page();
-
 	void map_kernel_memory();
 	int identity_map_memory(void *start, void *end);
-
 	int allocate_page(int dir_entry_idx, int table_entry_idx);
 	int free_page(int dir_entry_idx, int table_entry_idx);
 	int allocate_page_table(int dir_entry_idx);
 	int free_page_table(int dir_entry_idx);
-
 	void find_free_pages(size_t num_pages, int *dir_entry_idx, int *table_entry_idx);
-	bool map_page(void *virt_addr, void *phys_addr)
-	{
-	}
 	int map_page(int pdi, int pti, void *phys_addr);
 
 public:
@@ -103,18 +28,7 @@ public:
 	void free(void *addr, size_t num_pages);
 	void free(int pdi, int pti, size_t num_pages);
 	void *allocate(size_t num_pages);
-	void *map(void *phys_addr)
-	{
-		int dir_entry_idx = -1, table_entry_idx = -1;
-		find_free_pages(1, &dir_entry_idx, &table_entry_idx);
-		if (dir_entry_idx == -1 || table_entry_idx == -1)
-			return nullptr;
-		if (map_page(dir_entry_idx, table_entry_idx, phys_addr) != 0)
-			return nullptr;
-
-		return (void *)PAGE_ADDR(dir_entry_idx, table_entry_idx);
-	}
-
+	void *map(void *phys_addr);
 	inline void load()
 	{
 		loadPageDirectory((unsigned int *)pageDirectory);
